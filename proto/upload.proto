@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package netsy;
+
+import "proto/file.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/nadrama-com/netsy/internal/proto";
+
+message Upload {
+  string key = 1;
+  FileKind file_kind = 2;
+  int64 records_count = 3;
+  int64 first_revision = 4;
+  int64 last_revision = 5;
+  google.protobuf.Timestamp uploaded_at = 6;
+  string leader_id = 7;
+}

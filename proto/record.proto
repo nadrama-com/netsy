@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package netsy;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/nadrama-com/netsy/internal/proto";
+
+message Record {
+  int64 revision = 2;
+  bytes key = 3;
+  bool created = 4;
+  bool deleted = 5;
+  int64 create_revision = 6;
+  int64 prev_revision = 7;
+  int64 version = 8;
+  int64 lease = 9;
+  int64 dek = 10; // 0 = value is not encrypted
+  bytes value = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp compacted_at = 13;
+  string leader_id = 14;
+  google.protobuf.Timestamp replicated_at = 15;
+  uint64 crc = 1;
+}

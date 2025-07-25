@@ -1,0 +1,36 @@
+# Copyright 2025 Nadrama Pty Ltd
+# SPDX-License-Identifier: Apache-2.0
+
+/certs
+/temp
+/default.etcd
+
+# etcd
+default.etcd/
+
+# Build directories
+bin/
+
+# Temp directories
+temp
+temp/
+tmp
+tmp/
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# OS specific
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.env
+!/.env

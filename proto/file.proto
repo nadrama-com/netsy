@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package netsy;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/nadrama-com/netsy/internal/proto";
+
+enum FileKind {
+  KIND_UNKNOWN = 0;
+  KIND_SNAPSHOT = 1;
+  KIND_CHUNK = 2;
+}
+
+enum FileCompression {
+  COMPRESSION_UNKNOWN = 0;
+  COMPRESSION_NONE = 1;
+  COMPRESSION_ZSTD = 2;
+}
+
+message FileHeader {
+  uint32 schema_version = 2;
+  FileKind kind = 3;
+  FileCompression compression = 4;
+  int64 records_count = 5;
+  string leader_id = 6;
+  google.protobuf.Timestamp created_at = 7;
+  uint64 crc = 1;
+}
+
+message FileFooter {
+  uint64 records_crc = 2;
+  int64 first_revision = 3;
+  int64 last_revision = 4;
+  uint64 crc = 8;
+}
