@@ -1,16 +1,16 @@
 # Netsy
 
-Netsy is an [etcd](https://etcd.io/) alternative for Kubernetes clusters.
+Netsy is an [etcd](https://etcd.io/) alternative for Kubernetes which stores data in S3.
 
-Netsy was created by [Nadrama](https://nadrama.com).
-Nadrama helps you deploy containers, in your cloud account, in minutes.
-Nadrama uses Netsy in production for its Kubernetes clusters!
+Unlike etcd which uses the Raft consensus algorithm, the design of Netsy is inspired by PostgreSQL synchronous streaming replication, and by modern architectures of systems like Loki/Mimir and OpenObserve which use S3 (or S3-compatible) object storage for data persistence.
+
+Netsy was created by [Nadrama](https://nadrama.com). Nadrama helps you deploy containers, in your cloud account, in minutes. Nadrama uses Netsy in production for its Kubernetes clusters!
 
 ## Project Status
 
 We have released this repository as a developer preview and welcome your feedback!
 
-__Netsy is currently single-node only and not all features outlined in this README are necessarily implemented. Multi-node support is in development.__
+__Netsy is currently single-node only and not all features outlined in this README are necessarily implemented. Multi-node support is in development - you can read/give feedback on the [spec here](https://docs.google.com/document/d/1wNdsiVe35uSLWfnvq6fZ5ftmUThVQMfj6zChKfjxN-g/edit?usp=sharing).__
 
 Nadrama is committed to Open Source - read more [here](https://nadrama.com/opensource).
 
