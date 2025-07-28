@@ -61,16 +61,6 @@ func (db *database) Connect() error {
 		);`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS records_key_create_rev_prev_rev_uindex ON records (key, create_revision, prev_revision)`,
 		`CREATE INDEX IF NOT EXISTS records_index_key ON records (key);`,
-		`CREATE TABLE IF NOT EXISTS uploads (
-			key string PRIMARY KEY NOT NULL,
-			file_kind integer NOT NULL,
-			records_count integer NOT NULL,
-			first_revision integer NOT NULL,
-			last_revision integer NOT NULL,
-			uploaded_at text NOT NULL,
-			leader_id text NOT NULL,
-			replicated_at text
-		);`,
 	}
 	for _, sqlStmt := range migrations {
 		_, err = db.conn.Exec(sqlStmt)
