@@ -137,7 +137,7 @@ func (db *database) FindRecordsBy(whereQuery string, whereArgs []any, revision i
 			%s
 		)
 		SELECT
-			(SELECT MAX(revision) FROM records) as max_revision,
+			COALESCE((SELECT MAX(revision) FROM records), 0) as max_revision,
 			(SELECT COUNT(*) FROM filtered WHERE rn = 1 AND deleted = 0) as records_count,
 			0 as revision, '' as key, 0 as created, 0 as deleted, 0 as create_revision, 0 as prev_revision, 0 as version, 0 as lease, 0 as dek, '' as value, '' as created_at, NULL as compacted_at, '' as leader_id, NULL as replicated_at
 		UNION ALL
