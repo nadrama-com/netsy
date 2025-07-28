@@ -33,20 +33,9 @@ func Range(db localdb.Database, ctx context.Context, r *pb.RangeRequest) (*pb.Ra
 		return nil, status.Errorf(codes.Unimplemented, "sort_target not supported")
 	}
 
-	// query latest revision and build header for response
-	latestRevision, err := db.LatestRevision()
-	if err != nil {
-		return nil, err
-	}
-	respHeader := &pb.ResponseHeader{
-		Revision: latestRevision,
-	}
-
-	// determine query limit
-	// if Limit is specified on the request, query Limit+1 to determine if More=true
-	queryLimit := r.Limit
-	if r.Limit > 0 {
-		queryLimit = r.Limit + 1
+	// validate options
+	if r.Limit < 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "limit must be non-negative")
 	}
 
 	// determine query where criteria and args
@@ -98,34 +87,30 @@ func Range(db localdb.Database, ctx context.Context, r *pb.RangeRequest) (*pb.Ra
 		order = "DESC"
 	}
 
-	// query data
+	// query data with count
 	var revision int64
 	kvs := []*mvccpb.KeyValue{}
-	rows, err := db.FindRecordsBy(queryWhere, queryArgs, r.Revision, queryLimit, order)
+	rows, totalCount, maxRevision, err := db.FindRecordsBy(queryWhere, queryArgs, r.Revision, r.Limit, order)
 	if err != nil {
 		return nil, err
 	}
 
-	// process results and return response
-	kvs = []*mvccpb.KeyValue{}
-	numRows := len(rows)
-	desiredRows := numRows
-	more := false
-	if queryLimit > 1 && r.Limit > 0 && numRows > int(r.Limit) {
-		desiredRows--
-		more = true
-	}
+	// determine if there are more results
+	more := totalCount > int64(len(rows))
+
 	if r.CountOnly {
 		return &pb.RangeResponse{
-			Header: respHeader,
-			Count:  int64(len(kvs)),
-			More:   more,
+			Header: &pb.ResponseHeader{
+				Revision: maxRevision,
+			},
+			Count: totalCount,
+			More:  more,
 		}, nil
 	}
-	for i, row := range rows {
-		if i >= desiredRows {
-			continue
-		}
+
+	// process results and return response
+	kvs = []*mvccpb.KeyValue{}
+	for _, row := range rows {
 		if row.CompactedAt != nil {
 			return nil, rpctypes.ErrGRPCCompacted
 		}
@@ -144,9 +129,11 @@ func Range(db localdb.Database, ctx context.Context, r *pb.RangeRequest) (*pb.Ra
 		)
 	}
 	return &pb.RangeResponse{
-		Header: respHeader,
-		Kvs:    kvs,
-		Count:  int64(len(kvs)),
-		More:   more,
+		Header: &pb.ResponseHeader{
+			Revision: maxRevision,
+		},
+		Kvs:   kvs,
+		Count: totalCount,
+		More:  more,
 	}, nil
 }

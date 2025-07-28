@@ -104,26 +104,105 @@ func (db *database) selectRecord(queryEnd string, latestPerKey bool, excludeDele
 	return records, nil
 }
 
-func (db *database) FindRecordsBy(whereQuery string, whereArgs []any, revision int64, limit int64, order string) ([]*proto.Record, error) {
+func (db *database) FindRecordsBy(whereQuery string, whereArgs []any, revision int64, limit int64, order string) ([]*proto.Record, int64, int64, error) {
 	if order != "ASC" && order != "DESC" {
-		return nil, fmt.Errorf("invalid order: %s", order)
+		return nil, 0, 0, fmt.Errorf("invalid order: %s", order)
 	}
-	queryEnd := fmt.Sprintf("WHERE %s", whereQuery)
+
+	// Build WHERE clause
+	whereClause := fmt.Sprintf("WHERE (%s)", whereQuery)
 	if revision > 0 {
-		queryEnd += " AND revision <= ?"
+		whereClause += " AND revision <= ?"
 		whereArgs = append(whereArgs, revision)
 	}
-	queryEnd += " ORDER BY key " + order + ", revision DESC"
+
+	// Build ORDER BY clause
+	orderClause := fmt.Sprintf("ORDER BY key %s, revision DESC", order)
+
+	// Build LIMIT clause
+	limitClause := ""
 	if limit > 0 {
-		queryEnd += fmt.Sprintf(" LIMIT %d", limit)
+		limitClause = fmt.Sprintf("LIMIT %d", limit)
 	}
-	var records []*proto.Record
-	var err error
-	records, err = db.selectRecord(queryEnd, true, true, whereArgs...)
+
+	// Single query with CTE to get both count and records
+	query := fmt.Sprintf(`
+		WITH filtered AS (
+			SELECT
+				revision, key, created, deleted, create_revision, prev_revision, version, lease, dek, value, created_at, compacted_at, leader_id, replicated_at,
+				ROW_NUMBER() OVER (PARTITION BY key ORDER BY revision DESC) as rn
+			FROM records
+			%s
+		)
+		SELECT
+			(SELECT MAX(revision) FROM records) as max_revision,
+			(SELECT COUNT(*) FROM filtered WHERE rn = 1 AND deleted = 0) as records_count,
+			revision, key, created, deleted, create_revision, prev_revision, version, lease, dek, value, created_at, compacted_at, leader_id, replicated_at
+		FROM filtered
+		WHERE rn = 1 AND deleted = 0
+		%s
+		%s`, whereClause, orderClause, limitClause)
+	rows, err := db.conn.Query(query, whereArgs...)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
-	return records, nil
+	defer rows.Close()
+
+	// Parse query results
+	var records []*proto.Record
+	var maxRevision int64
+	var totalCount int64
+	for rows.Next() {
+		var record proto.Record
+		var createdAtStr string
+		var compactedAtStr, replicatedAtStr sql.NullString
+
+		err := rows.Scan(
+			&maxRevision, // max_revision from CTE
+			&totalCount,  // records_count from CTE
+			&record.Revision,
+			&record.Key,
+			&record.Created,
+			&record.Deleted,
+			&record.CreateRevision,
+			&record.PrevRevision,
+			&record.Version,
+			&record.Lease,
+			&record.Dek,
+			&record.Value,
+			&createdAtStr,
+			&compactedAtStr,
+			&record.LeaderId,
+			&replicatedAtStr,
+		)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+
+		// Convert string timestamps to protobuf timestamps
+		if createdAtStr != "" {
+			if t, err := time.Parse(time.RFC3339Nano, createdAtStr); err == nil {
+				record.CreatedAt = timestamppb.New(t)
+			}
+		}
+		if compactedAtStr.Valid && compactedAtStr.String != "" {
+			if t, err := time.Parse(time.RFC3339Nano, compactedAtStr.String); err == nil {
+				record.CompactedAt = timestamppb.New(t)
+			}
+		}
+		if replicatedAtStr.Valid && replicatedAtStr.String != "" {
+			if t, err := time.Parse(time.RFC3339Nano, replicatedAtStr.String); err == nil {
+				record.ReplicatedAt = timestamppb.New(t)
+			}
+		}
+
+		records = append(records, &record)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, 0, 0, err
+	}
+
+	return records, totalCount, maxRevision, nil
 }
 
 // FindAllRecordsForSnapshot returns all non-compacted records up to the specified revision,

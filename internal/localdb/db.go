@@ -21,7 +21,7 @@ type Database interface {
 	LatestRevision() (int64, error)
 	GetRevision(findRevision int64) (revision int64, compacted bool, compactedAt sql.NullString, err error)
 	VerifyIntegrity() error
-	FindRecordsBy(whereQuery string, whereArgs []any, revision int64, limit int64, order string) ([]*proto.Record, error)
+	FindRecordsBy(whereQuery string, whereArgs []any, revision int64, limit int64, order string) ([]*proto.Record, int64, int64, error)
 	FindRecordByRev(revision int64) (*proto.Record, error)
 	FindAllRecordsForSnapshot(upToRevision int64) ([]*proto.Record, error)
 	InsertRecord(record *proto.Record, tx *Tx) (*proto.Record, error)
