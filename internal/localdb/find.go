@@ -122,10 +122,12 @@ func (db *database) FindRecordsBy(whereQuery string, whereArgs []any, revision i
 	// Build LIMIT clause
 	limitClause := ""
 	if limit > 0 {
-		limitClause = fmt.Sprintf("LIMIT %d", limit)
+		limitClause = fmt.Sprintf("LIMIT %d", limit+1)
 	}
 
-	// Single query with CTE to get both count and records
+	// Single query with CTE to get both count and records,
+	// using UNION ALL to return first row for metadata, then actual records after.
+	// This means an empty record set still returns the max revision in metadata.
 	query := fmt.Sprintf(`
 		WITH filtered AS (
 			SELECT
@@ -137,29 +139,35 @@ func (db *database) FindRecordsBy(whereQuery string, whereArgs []any, revision i
 		SELECT
 			(SELECT MAX(revision) FROM records) as max_revision,
 			(SELECT COUNT(*) FROM filtered WHERE rn = 1 AND deleted = 0) as records_count,
+			0 as revision, '' as key, 0 as created, 0 as deleted, 0 as create_revision, 0 as prev_revision, 0 as version, 0 as lease, 0 as dek, '' as value, '' as created_at, NULL as compacted_at, '' as leader_id, NULL as replicated_at
+		UNION ALL
+		SELECT
+			0 as max_revision, 0 as records_count,
 			revision, key, created, deleted, create_revision, prev_revision, version, lease, dek, value, created_at, compacted_at, leader_id, replicated_at
 		FROM filtered
 		WHERE rn = 1 AND deleted = 0
-		%s
-		%s`, whereClause, orderClause, limitClause)
+		%s %s`, whereClause, orderClause, limitClause)
 	rows, err := db.conn.Query(query, whereArgs...)
 	if err != nil {
 		return nil, 0, 0, err
 	}
 	defer rows.Close()
 
-	// Parse query results
+	// Parse query results - first row is always metadata, subsequent rows are records
 	var records []*proto.Record
 	var maxRevision int64
 	var totalCount int64
+	isFirstRow := true
+
 	for rows.Next() {
+		var maxRevisionValue, totalCountValue int64
 		var record proto.Record
 		var createdAtStr string
 		var compactedAtStr, replicatedAtStr sql.NullString
 
 		err := rows.Scan(
-			&maxRevision, // max_revision from CTE
-			&totalCount,  // records_count from CTE
+			&maxRevisionValue, // max_revision (only in first row)
+			&totalCountValue,  // records_count (only in first row)
 			&record.Revision,
 			&record.Key,
 			&record.Created,
@@ -177,6 +185,14 @@ func (db *database) FindRecordsBy(whereQuery string, whereArgs []any, revision i
 		)
 		if err != nil {
 			return nil, 0, 0, err
+		}
+
+		// First row contains metadata
+		if isFirstRow {
+			maxRevision = maxRevisionValue
+			totalCount = totalCountValue
+			isFirstRow = false
+			continue // Skip to next row for actual records
 		}
 
 		// Convert string timestamps to protobuf timestamps
