@@ -44,11 +44,11 @@ func (db *database) InsertRecord(record *proto.Record, tx *Tx) (*proto.Record, e
 	// validate data
 	if record.Revision <= 0 ||
 		len(record.Key) == 0 ||
-		record.CreateRevision < 0 ||
-		record.PrevRevision < 0 ||
+		record.PrevRevision < 0 || // optional, compare mod_revision
+		record.Lease < 0 || // optional
+		record.Dek < 0 || // optional
+		record.CreateRevision != 0 ||
 		record.Version != 0 ||
-		record.Lease < 0 ||
-		record.Dek < 0 ||
 		record.CreatedAt != nil ||
 		record.CompactedAt != nil ||
 		record.LeaderId == "" ||
@@ -77,17 +77,16 @@ func (db *database) InsertRecord(record *proto.Record, tx *Tx) (*proto.Record, e
 	var compactedAtStr, replicatedAtStr sql.NullString
 	err := queryInterface.QueryRow(
 		insertRecordSQL,
-		record.Revision,       // ?1
-		record.Key,            // ?2
-		record.Created,        // ?3
-		record.Deleted,        // ?4
-		record.CreateRevision, // ?5
-		record.PrevRevision,   // ?6
-		record.Lease,          // ?7
-		record.Dek,            // ?8
-		record.Value,          // ?9
-		record.CreatedAt.AsTime().Format(time.RFC3339Nano), // ?10
-		record.LeaderId, // ?11
+		record.Revision,     // ?1
+		record.Key,          // ?2
+		record.Created,      // ?3
+		record.Deleted,      // ?4
+		record.PrevRevision, // ?5
+		record.Lease,        // ?6
+		record.Dek,          // ?7
+		record.Value,        // ?8
+		record.CreatedAt.AsTime().Format(time.RFC3339Nano), // ?9
+		record.LeaderId, // ?10
 	).Scan(
 		&returnedRecord.Revision,
 		&returnedRecord.Key,
@@ -202,14 +201,14 @@ const insertRecordSQL = `
         (SELECT revision+1 FROM latest_revision_for_table)
     ),
     /* prev_revision */
-    CASE WHEN ?6 > 0
+    CASE WHEN ?5 > 0
     THEN
-        CASE WHEN ?6 = IFNULL(
+        CASE WHEN ?5 = IFNULL(
             (SELECT revision FROM latest_revision_for_key WHERE deleted = 0),
             0
         )
         THEN
-	        ?6
+	        ?5
 	    ELSE
 	        null
         END
@@ -235,17 +234,17 @@ const insertRecordSQL = `
         )+1
     END,
     /* lease */
-    ?7,
+    ?6,
     /* dek */
-    ?8,
+    ?7,
     /* value */
-    ?9,
+    ?8,
     /* created_at */
-    ?10,
+    ?9,
     /* compacted_at */
     NULL,
     /* leader_id */
-    ?11,
+    ?10,
     /* replicated_at */
     NULL
   RETURNING *

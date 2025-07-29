@@ -402,15 +402,7 @@ func (cs *ClientAPIServer) Distribute(record *proto.Record, prevRecord *proto.Re
 			if isWatchMatch(watch, record) {
 				msg.WatchId = watchID
 				if watch.prevKv {
-					if msgPrevKv != nil {
-						msg.Events[0].PrevKv = msgPrevKv
-					} else {
-						// For newly created keys, provide empty previous KeyValue
-						// to satisfy kube-apiserver's expectation of non-nil PrevKv
-						msg.Events[0].PrevKv = &mvccpb.KeyValue{
-							Key: record.Key,
-						}
-					}
+					msg.Events[0].PrevKv = msgPrevKv
 				} else {
 					msg.Events[0].PrevKv = nil
 				}

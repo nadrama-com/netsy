@@ -38,16 +38,19 @@ func (cs *ClientAPIServer) Txn(ctx context.Context, r *pb.TxnRequest) (resp *pb.
 			},
 		}
 	} else if inserted != nil && inserted.Created {
-		level.Debug(cs.logger).Log("txncreated", string(inserted.Key))
+		level.Debug(cs.logger).Log("txncreated", string(inserted.Key), "rev", string(inserted.Revision))
 	} else if inserted != nil && inserted.Deleted {
-		level.Debug(cs.logger).Log("txndeleted", string(inserted.Key))
+		level.Debug(cs.logger).Log("txndeleted", string(inserted.Key), "rev", string(inserted.Revision))
 	} else if inserted != nil {
-		level.Debug(cs.logger).Log("txnupdated", string(inserted.Key))
+		level.Debug(cs.logger).Log("txnupdated", string(inserted.Key), "rev", string(inserted.Revision))
 	}
 	// Replicate to watchers
 	var prevRecord *proto.Record
 	if inserted != nil && !inserted.Created && inserted.PrevRevision > 0 {
-		prevRecord, _ = cs.db.FindRecordByRev(inserted.PrevRevision)
+		prevRecord, err = cs.db.FindRecordByRev(inserted.PrevRevision)
+		if err != nil {
+			level.Debug(cs.logger).Log("findprev", string(inserted.Key), "rev", string(inserted.Revision), "prev", string(inserted.PrevRevision), "err", err.Error())
+		}
 	}
 	if inserted != nil {
 		cs.Distribute(inserted, prevRecord)

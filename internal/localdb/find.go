@@ -258,6 +258,10 @@ func (db *database) FindRecordByRev(rev int64) (record *proto.Record, err error)
 	}
 	defer rows.Close()
 
+	if !rows.Next() {
+		return nil, sql.ErrNoRows
+	}
+
 	var row proto.Record
 	var createdAtStr string
 	var compactedAtStr, replicatedAtStr sql.NullString
@@ -296,5 +300,5 @@ func (db *database) FindRecordByRev(rev int64) (record *proto.Record, err error)
 			row.ReplicatedAt = timestamppb.New(t)
 		}
 	}
-	return record, nil
+	return &row, nil
 }
