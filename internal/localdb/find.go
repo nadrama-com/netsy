@@ -221,10 +221,10 @@ func (db *database) FindRecordsBy(whereQuery string, whereArgs []any, revision i
 	return records, totalCount, maxRevision, nil
 }
 
-// FindAllRecordsForSnapshot returns all non-compacted records up to the specified revision,
+// FindAllRecordsForSnapshot returns all records up to the specified revision,
 // including deleted records (needed for proper snapshot creation)
 func (db *database) FindAllRecordsForSnapshot(upToRevision int64) ([]*proto.Record, error) {
-	queryEnd := "WHERE revision <= ? AND compacted_at IS NULL ORDER BY revision ASC"
+	queryEnd := "WHERE revision <= ? ORDER BY revision ASC"
 	var records []*proto.Record
 	var err error
 	// latestPerKey=false, excludeDeleted=false - we want all non-compacted records including deleted ones
