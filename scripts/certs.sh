@@ -75,6 +75,7 @@ openssl x509 -req \
     -CAcreateserial \
     -out "${CERTS_DIR}/netsy.server.crt" \
     -days 365 \
+    -not_before "$(date -u -v-1H '+%y%m%d%H%M%SZ')" \
     -extensions v3_req \
     -extfile "${CERTS_DIR}/netsy.server.conf"
 
@@ -91,7 +92,8 @@ openssl x509 -req \
     -CAkey "${CERTS_DIR}/ca.key" \
     -CAcreateserial \
     -out "${CERTS_DIR}/netsy.client.crt" \
-    -days 365
+    -days 365 \
+    -not_before "$(date -u -v-1H '+%y%m%d%H%M%SZ')"
 
 # Generate kube-apiserver client certificate
 echo "Generating kube-apiserver client certificate..."
@@ -106,7 +108,8 @@ openssl x509 -req \
     -CAkey "${CERTS_DIR}/ca.key" \
     -CAcreateserial \
     -out "${CERTS_DIR}/kube-apiserver.client.crt" \
-    -days 365
+    -days 365 \
+    -not_before "$(date -u -v-1H '+%y%m%d%H%M%SZ')"
 
 # Clean up CSR files and config
 rm "${CERTS_DIR}/netsy.server.csr" "${CERTS_DIR}/kube-apiserver.client.csr" "${CERTS_DIR}/netsy.server.conf"
