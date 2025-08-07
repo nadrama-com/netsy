@@ -24,6 +24,7 @@ KEYS=(
     netsy.server
     netsy.client
     kube-apiserver.client
+    kubectl.client
 )
 for item in "${KEYS[@]}"; do
     CMD="openssl genpkey -algorithm Ed25519 -out ${CERTS_DIR}/${item}.key"
@@ -111,7 +112,23 @@ openssl x509 -req \
     -days 365 \
     -not_before "$(date -u -v-1H '+%y%m%d%H%M%SZ')"
 
+# Generate kubectl client certificate with system:masters group
+echo "Generating kubectl client certificate..."
+openssl req -new \
+    -key "${CERTS_DIR}/kubectl.client.key" \
+    -out "${CERTS_DIR}/kubectl.client.csr" \
+    -subj "/CN=kubectl-admin/O=system:masters"
+
+openssl x509 -req \
+    -in "${CERTS_DIR}/kubectl.client.csr" \
+    -CA "${CERTS_DIR}/ca.crt" \
+    -CAkey "${CERTS_DIR}/ca.key" \
+    -CAcreateserial \
+    -out "${CERTS_DIR}/kubectl.client.crt" \
+    -days 365 \
+    -not_before "$(date -u -v-1H '+%y%m%d%H%M%SZ')"
+
 # Clean up CSR files and config
-rm "${CERTS_DIR}/netsy.server.csr" "${CERTS_DIR}/kube-apiserver.client.csr" "${CERTS_DIR}/netsy.server.conf"
+rm "${CERTS_DIR}/netsy.server.csr" "${CERTS_DIR}/kube-apiserver.client.csr" "${CERTS_DIR}/kubectl.client.csr" "${CERTS_DIR}/netsy.server.conf"
 
 echo "Certificates generated successfully in ${CERTS_DIR}/"

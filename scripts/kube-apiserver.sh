@@ -18,18 +18,23 @@ docker run -d --name $CONTAINER_NAME \
   --entrypoint kube-apiserver \
   -v "${CURRENT}/../certs:/opt/netsy-certs:ro" \
   -p 8080:8080 \
+  -p 6443:6443 \
   registry.k8s.io/kube-apiserver:$VERSION \
   --etcd-servers=https://host.containers.internal:2378 \
   --etcd-certfile=/opt/netsy-certs/kube-apiserver.client.crt \
   --etcd-keyfile=/opt/netsy-certs/kube-apiserver.client.key \
   --etcd-cafile=/opt/netsy-certs/ca.crt \
+  --client-ca-file=/opt/netsy-certs/ca.crt \
+  --tls-cert-file=/opt/netsy-certs/netsy.server.crt \
+  --tls-private-key-file=/opt/netsy-certs/netsy.server.key \
   --service-cluster-ip-range=10.0.0.0/24 \
   --service-account-issuer=https://kubernetes.default.svc \
   --service-account-signing-key-file=/opt/netsy-certs/service-account.key \
   --service-account-key-file=/opt/netsy-certs/service-account.key \
   --api-audiences=api \
   --authorization-mode=RBAC \
-  --allow-privileged=true
+  --allow-privileged=true \
+  --bind-address=0.0.0.0
 echo "Running $CONTAINER_NAME (Press Ctrl+C to stop)"
 docker logs -f $CONTAINER_NAME &
 docker wait $CONTAINER_NAME >/dev/null
